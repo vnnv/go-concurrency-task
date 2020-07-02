@@ -42,6 +42,9 @@ func TestPipeline(t *testing.T) {
 	if !ok || atomic.LoadUint32(&received) == 0 {
 		t.Errorf("no value free flow - dont collect them")
 	}
+	//if !ok || received == 0 {
+	//	t.Errorf("no value free flow - dont collect them")
+	//}
 }
 
 func TestSigner(t *testing.T) {
@@ -60,7 +63,7 @@ func TestSigner(t *testing.T) {
 		atomic.AddUint32(&OverheatLockCounter, 1)
 		for {
 			if swapped := atomic.CompareAndSwapUint32(&dataSignerOverheat, 0, 1); !swapped {
-				fmt.Println("OverheatLock happend")
+				fmt.Println("OverheatLock happened")
 				time.Sleep(time.Second)
 			} else {
 				break
@@ -71,7 +74,7 @@ func TestSigner(t *testing.T) {
 		atomic.AddUint32(&OverheatUnlockCounter, 1)
 		for {
 			if swapped := atomic.CompareAndSwapUint32(&dataSignerOverheat, 1, 0); !swapped {
-				fmt.Println("OverheatUnlock happend")
+				fmt.Println("OverheatUnlock happened")
 				time.Sleep(time.Second)
 			} else {
 				break
