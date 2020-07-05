@@ -160,12 +160,17 @@ func SingleHash(in, out chan interface{}) {
 			fmt.Println(err)
 			return
 		}
-		fmt.Println("In data string: ", data)
+		fmt.Println("Single Hash input data string: ", data)
 
 		left := DataSignerCrc32(data)
-		right := DataSignerCrc32(DataSignerMd5(data))
+		md5 := DataSignerMd5(data);
+		right := DataSignerCrc32(md5)
 		res := left + "~" + right
-		fmt.Println("SingleHash res: ", res)
+
+		fmt.Println("Single Hash crc32(data) ", left)
+		fmt.Println("Single Hash md5(data) ", md5)
+		fmt.Println("Single Hash crc32(md5(data)) ", right)
+		fmt.Println("Single Hash final res: ", res)
 		out <- res
 	}
 
@@ -180,8 +185,17 @@ func MultiHash(in, out chan interface{}) {
 			fmt.Println(err)
 			return
 		}
-		fmt.Println("Multihash res: ", data)
-		out <- data
+		fmt.Println("Multi hash input res: ", data)
+
+		var result string
+		for i := 0 ; i < 6; i++ {
+			_data := strconv.Itoa(i) + data
+			crc32 := DataSignerCrc32(_data)
+			fmt.Println(data, "Multi hash crc32(th+data) ", i, crc32)
+			result += crc32
+		}
+		fmt.Println(data, "Multihash result: ", result)
+		out <- result
 	}
 }
 
