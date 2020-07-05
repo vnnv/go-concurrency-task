@@ -118,6 +118,9 @@ func TestSigner(t *testing.T) {
 				t.Error("cant convert result data to string")
 			}
 			testResult = data
+			// Me
+			fmt.Println("Final result is -> ", testResult)
+			//out <- data
 		}),
 	}
 

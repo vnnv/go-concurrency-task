@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	_ "sync"
 	"time"
@@ -14,9 +15,9 @@ func Log(msg string) {
 }
 
 func worker(jobToExecute job, in, out chan interface{}, wg *sync.WaitGroup, no int) {
+	defer fmt.Println("Finish job #", no)
 	defer wg.Done()
 	defer close(out)
-	defer fmt.Println("Finish job #", no)
 
 	fmt.Println("Starting job #", no)
 	jobToExecute(in, out)
@@ -27,7 +28,7 @@ func ExecutePipeline(jobs ...job) {
 	wg := sync.WaitGroup{}
 
 	noJobs := len(jobs)
-	fmt.Printf("Starting pipelineof %d jobs...\n", noJobs)
+	fmt.Printf("Starting pipeline of %d jobs...\n", noJobs)
 
 	//input := make(chan interface{})
 	var input chan interface{}
@@ -43,10 +44,10 @@ func ExecutePipeline(jobs ...job) {
 		input = output
 	}
 
-	if output != nil {
-		res := <- output
-		fmt.Println("result: ", res)
-	}
+	//if output != nil {
+	//	res := <- output
+	//	fmt.Println("* FIN result: ", res)
+	//}
 	wg.Wait()
 
 	//select {
@@ -138,14 +139,64 @@ func ExecutePipelineWork(jobs ...job) {
 	fmt.Println("Pipeline is over...")
 }
 
+func convertToString(data interface{}) (string, error) {
+	var res string
+	switch data.(type) {
+	case int: res = strconv.Itoa(data.(int))
+	case float32 : res = fmt.Sprintf("%f", data.(float32))
+	case float64 : res = fmt.Sprintf("%f", data.(float64))
+	case string : res = data.(string)
+	default:
+		return "", fmt.Errorf("Can not parse the incoming data\n")
+	}
+
+	return res, nil
+}
+
 func SingleHash(in, out chan interface{}) {
+	for inDataRaw := range in {
+		data, err := convertToString(inDataRaw)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("In data string: ", data)
+
+		left := DataSignerCrc32(data)
+		right := DataSignerCrc32(DataSignerMd5(data))
+		res := left + "~" + right
+		fmt.Println("SingleHash res: ", res)
+		out <- res
+	}
+
 
 }
 
 func MultiHash(in, out chan interface{}) {
+	for inDataRaw := range in {
+		data, err := convertToString(inDataRaw)
 
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("Multihash res: ", data)
+		out <- data
+	}
 }
 
 func CombineResults(in, out chan interface{}) {
+	var res string
+	for inDataRaw := range in {
+		data, err := convertToString(inDataRaw)
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("Combine result res: ", data)
+		res += data
+	}
+	out <- res
 
 }
