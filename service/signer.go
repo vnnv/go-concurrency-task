@@ -2,7 +2,9 @@ package service
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	_ "sync"
 	"time"
@@ -200,6 +202,8 @@ func MultiHash(in, out chan interface{}) {
 }
 
 func CombineResults(in, out chan interface{}) {
+	var tempSlice []string
+
 	var res string
 	for inDataRaw := range in {
 		data, err := convertToString(inDataRaw)
@@ -208,9 +212,13 @@ func CombineResults(in, out chan interface{}) {
 			fmt.Println(err)
 			return
 		}
-		fmt.Println("Combine result res: ", data)
+		//fmt.Println("Combine result res: ", data)
+		tempSlice = append(tempSlice, data)
 		res += data
 	}
-	out <- res
+	sort.Strings(tempSlice)
+	endResult := fmt.Sprintf(strings.Join(tempSlice[:], "_"))
+	fmt.Println("Combine result final: ", endResult)
+	out <- endResult
 
 }
