@@ -165,7 +165,7 @@ func SingleHash(in, out chan interface{}) {
 		fmt.Println("Single Hash input data string: ", data)
 
 		left := DataSignerCrc32(data)
-		md5 := DataSignerMd5(data);
+		md5 := DataSignerMd5(data)
 		right := DataSignerCrc32(md5)
 		res := left + "~" + right
 
@@ -190,6 +190,7 @@ func MultiHash(in, out chan interface{}) {
 		fmt.Println("Multi hash input res: ", data)
 
 		var result string
+		// go crc32 -> res goes to map[i] = res
 		for i := 0 ; i < 6; i++ {
 			_data := strconv.Itoa(i) + data
 			crc32 := DataSignerCrc32(_data)
