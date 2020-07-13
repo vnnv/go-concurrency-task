@@ -135,6 +135,7 @@ func TestSigner(t *testing.T) {
 	if testExpected != testResult {
 		t.Errorf("results not match\nGot: %v\nExpected: %v", testResult, testExpected)
 	}
+	fmt.Println("Test result is ok. Checking time...")
 
 	if end > expectedTime {
 		t.Errorf("execition too long\nGot: %s\nExpected: <%s", end, time.Second*3)
