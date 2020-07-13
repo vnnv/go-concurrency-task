@@ -155,6 +155,13 @@ func convertToString(data interface{}) (string, error) {
 	return res, nil
 }
 
+func privateCrc32(wg *sync.WaitGroup, data string, out chan string ) {
+	defer wg.Done()
+
+	res := DataSignerCrc32(data)
+	out <- res
+}
+
 func SingleHash(in, out chan interface{}) {
 	for inDataRaw := range in {
 		data, err := convertToString(inDataRaw)
@@ -164,9 +171,22 @@ func SingleHash(in, out chan interface{}) {
 		}
 		fmt.Println("Single Hash input data string: ", data)
 
-		left := DataSignerCrc32(data)
 		md5 := DataSignerMd5(data)
-		right := DataSignerCrc32(md5)
+
+		leftChannel := make(chan string)
+		rightChannel := make(chan string)
+		wg := &sync.WaitGroup{}
+
+		wg.Add(1)
+		go privateCrc32(wg, data, leftChannel)
+		wg.Add(1)
+		go privateCrc32(wg, md5, rightChannel)
+
+
+		left := <- leftChannel
+		right := <- rightChannel
+
+		wg.Wait()
 		res := left + "~" + right
 
 		fmt.Println("Single Hash crc32(data) ", left)
@@ -191,11 +211,36 @@ func MultiHash(in, out chan interface{}) {
 
 		var result string
 		// go crc32 -> res goes to map[i] = res
+		res := make(map[int]string)
+		mutex := &sync.Mutex{}
+
+		wg := &sync.WaitGroup{}
+
 		for i := 0 ; i < 6; i++ {
+			//res[i] = make(chan string)
 			_data := strconv.Itoa(i) + data
-			crc32 := DataSignerCrc32(_data)
-			fmt.Println(data, "Multi hash crc32(th+data) ", i, crc32)
-			result += crc32
+			wg.Add(1)
+			go func(index int, input string) {
+				defer mutex.Unlock()
+				defer wg.Done()
+
+				result := DataSignerCrc32(input)
+				mutex.Lock()
+				res[index] = result
+
+			}(i, _data)
+
+			//go privteCrc32(wg, _data, res[i])
+			//crc32 := DataSignerCrc32(_data)
+			//fmt.Println(data, "Multi hash crc32(th+data) ", i, crc32)
+			//result += crc32
+		}
+		wg.Wait()
+
+		for i := 0; i < 6; i++ {
+			s := res[i]
+			fmt.Println(data, "Multi hash crc32(th+data) ", i, s)
+			result += s
 		}
 		fmt.Println(data, "Multihash result: ", result)
 		out <- result
