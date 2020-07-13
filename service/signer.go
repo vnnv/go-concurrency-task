@@ -145,8 +145,8 @@ func convertToString(data interface{}) (string, error) {
 	var res string
 	switch data.(type) {
 	case int: res = strconv.Itoa(data.(int))
-	case float32 : res = fmt.Sprintf("%f", data.(float32))
-	case float64 : res = fmt.Sprintf("%f", data.(float64))
+	case float32 : res = strconv.FormatFloat(float64(data.(float32)), 'f', -1, 32)
+	case float64 : res = strconv.FormatFloat(data.(float64), 'f', -1, 64)
 	case string : res = data.(string)
 	default:
 		return "", fmt.Errorf("Can not parse the incoming data\n")
