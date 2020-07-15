@@ -138,8 +138,8 @@ func MultiHash(in, out chan interface{}) {
 			log.Panic(err)
 		}
 		wg.Add(1)
-		go func(data string, outer_wg *sync.WaitGroup) {
-			defer outer_wg.Done()
+		go func(data string, outerWg *sync.WaitGroup) {
+			defer outerWg.Done()
 
 			log.Println("MultiHash() input data: ", data)
 			var result string
@@ -179,6 +179,7 @@ func MultiHash(in, out chan interface{}) {
 
 }
 
+// CombineResults combines and sort incoming values from MultiHash function
 func CombineResults(in, out chan interface{}) {
 	var tempSlice []string
 
