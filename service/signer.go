@@ -128,7 +128,7 @@ func SingleHash(in, out chan interface{}) {
 
 // MultiHash - to be described
 func MultiHash(in, out chan interface{}) {
-	log.Println("*** Start Multihash()...")
+	log.Println("*** Start MultiHash()...")
 	wg := &sync.WaitGroup{}
 
 	for inDataRaw := range in {
@@ -141,7 +141,7 @@ func MultiHash(in, out chan interface{}) {
 		go func(data string, outer_wg *sync.WaitGroup) {
 			defer outer_wg.Done()
 
-			log.Println("Multihash() input data: ", data)
+			log.Println("MultiHash() input data: ", data)
 			var result string
 
 			// keep the results is a map
@@ -167,15 +167,15 @@ func MultiHash(in, out chan interface{}) {
 
 			for i := 0; i < 6; i++ {
 				s := res[i]
-				log.Println("Input: ", data, "Multihash() crc32(th+data) ", i, s)
+				log.Println("Input: ", data, "MultiHash() crc32(th+data) ", i, s)
 				result += s
 			}
 			out <- result
 		}(data, wg)
 	}
-	log.Println("Waiting Multihash() to finish...")
+	log.Println("Waiting MultiHash() to finish...")
 	wg.Wait()
-	log.Println("*** End Multihash()")
+	log.Println("*** End MultiHash()")
 
 }
 
