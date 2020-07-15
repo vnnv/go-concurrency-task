@@ -1,6 +1,5 @@
 package service
 
-
 import (
 	"crypto/md5"
 	"fmt"
@@ -32,7 +31,7 @@ func TestPipeline(t *testing.T) {
 			}
 		}),
 		job(func(in, out chan interface{}) {
-			for _ = range in {
+			for range in {
 				atomic.AddUint32(&received, 1)
 			}
 			out <- 1

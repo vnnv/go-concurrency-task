@@ -2,42 +2,35 @@ package service
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	_ "sync"
-	"time"
 )
 
 // code goes here
 
-func Log(msg string) {
-	fmt.Println(msg)
-}
-
 func worker(jobToExecute job, in, out chan interface{}, wg *sync.WaitGroup, no int) {
-	//defer fmt.Println("Finish job #", no)
 	defer wg.Done()
 	defer close(out)
+	defer log.Println("Finish job #", no)
 
-	//fmt.Println("Starting job #", no)
+	log.Println("Starting job #", no)
 	jobToExecute(in, out)
 }
 
+// ExecutePipeline accept slice of jobs and execute every job
 func ExecutePipeline(jobs ...job) {
+	log.Printf("*** Starting pipeline of %d jobs...\n", len(jobs))
 
 	wg := sync.WaitGroup{}
 
-	noJobs := len(jobs)
-	fmt.Printf("Starting pipeline of %d jobs...\n", noJobs)
-
-	//input := make(chan interface{})
 	var input chan interface{}
 	var output chan interface{}
 
 	for i, job := range jobs {
-		fmt.Printf("Executing job %d type: %T\n", i, job)
+		log.Printf("Executing job %d... \n", i)
 		output = make(chan interface{})
 
 		wg.Add(1)
@@ -47,144 +40,142 @@ func ExecutePipeline(jobs ...job) {
 	}
 
 	if output != nil {
-		res := <- output
-		fmt.Println("result: ", res)
+		res := <-output
+		log.Println("Last job result is: ", res)
 	}
-	fmt.Println("*** Waiting to finish pipeline...")
+	log.Println("Waiting to finish pipeline...")
 	wg.Wait()
 
-
-	fmt.Println("Pipeline is over...")
+	log.Println("*** Pipeline is over...")
 }
 
+// Convert only from int, float and string. For other types return error.
+// Can be used if the test contains different type input values
 func convertToString(data interface{}) (string, error) {
 	var res string
-	switch data.(type) {
-	case int: res = strconv.Itoa(data.(int))
-	case float32 : res = strconv.FormatFloat(float64(data.(float32)), 'f', -1, 32)
-	case float64 : res = strconv.FormatFloat(data.(float64), 'f', -1, 64)
-	case string : res = data.(string)
+	switch data := data.(type) {
+	case int:
+		res = strconv.Itoa(data)
+	case float32:
+		res = strconv.FormatFloat(float64(data), 'f', -1, 32)
+	case float64:
+		res = strconv.FormatFloat(data, 'f', -1, 64)
+	case string:
+		res = data
 	default:
-		return "", fmt.Errorf("Can not parse the incoming data\n")
+		return "", fmt.Errorf("Can not parse the incoming data. Not supported variable type.\n")
 	}
 
 	return res, nil
 }
 
-func privateCrc32(/*wg *sync.WaitGroup,*/ data string, out chan string ) {
-	//defer wg.Done()
-
-	res := DataSignerCrc32(data)
-	out <- res
-}
-
+// SingleHash - to be described
 func SingleHash(in, out chan interface{}) {
 	md5Lock := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
-	fmt.Println("Starting SingleHash()")
+	log.Println("*** Start SingleHash()...")
 	for inDataRaw := range in {
 
-		//fmt.Println("* SingleHash start: ", time.Now())
 		data, err := convertToString(inDataRaw)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		//fmt.Println("Single Hash input data string: ", data)
 		wg.Add(1)
 		go func(inData string, wg *sync.WaitGroup) {
 			defer wg.Done()
 
+			// Lock calling md5 - to prevent overheating "_
 			md5Lock.Lock()
 			md5 := DataSignerMd5(data)
 			md5Lock.Unlock()
 
 			leftChannel := make(chan string)
 			rightChannel := make(chan string)
-			//wgInt := &sync.WaitGroup{}
 
-			//wgInt.Add(1)
-			go privateCrc32(/*wgInt,*/ data, leftChannel)
-			//wgInt.Add(1)
-			go privateCrc32(/*wgInt,*/ md5, rightChannel)
+			// Calc left part
+			go func(data string, out chan string) {
+				res := DataSignerCrc32(data)
+				out <- res
+			}(inData, leftChannel)
 
+			// Calc right part
+			go func(data string, out chan string) {
+				res := DataSignerCrc32(data)
+				out <- res
+			}(md5, rightChannel)
 
-			left := <- leftChannel
-			right := <- rightChannel
+			left := <-leftChannel
+			right := <-rightChannel
 
-			//wgInt.Wait()
 			res := left + "~" + right
 
-			fmt.Println("Single Hash crc32(data) ", left)
-			fmt.Println("Single Hash md5(data) ", md5)
-			fmt.Println("Single Hash crc32(md5(data)) ", right)
-			fmt.Println("Single Hash final res: ", res)
-			fmt.Println("* SingleHash end: ", time.Now())
+			log.Println("Single Hash input data ", inData)
+			log.Println("Single Hash crc32(data) ", left)
+			log.Println("Single Hash md5(data) ", md5)
+			log.Println("Single Hash crc32(md5(data)) ", right)
+			log.Println("Single Hash final result: ", res)
 
 			out <- res
 
 		}(data, wg)
 
 	}
-	fmt.Println("Waiting to finish SingleHash()")
+	log.Println("Waiting to finish SingleHash()")
 	wg.Wait()
-	fmt.Println("****** SingleHash() end")
+	log.Println("*** SingleHash() finished")
 }
 
+// MultiHash - to be described
 func MultiHash(in, out chan interface{}) {
-	//for {
+	log.Println("*** Start Multihash()...")
 	wg := &sync.WaitGroup{}
-		for inDataRaw := range in {
-			data, err := convertToString(inDataRaw)
 
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			//fmt.Println("Multi hash input res: ", data, time.Now())
-			wg.Add(1)
-			go func(data string, outer_wg *sync.WaitGroup) {
-				defer outer_wg.Done()
-				var result string
-				// go crc32 -> res goes to map[i] = res
-				res := make(map[int]string)
-				mutex := &sync.Mutex{}
+	for inDataRaw := range in {
+		data, err := convertToString(inDataRaw)
 
-				wg := &sync.WaitGroup{}
-
-				for i := 0 ; i < 6; i++ {
-					//res[i] = make(chan string)
-					_data := strconv.Itoa(i) + data
-					wg.Add(1)
-					go func(index int, input string) {
-						defer mutex.Unlock()
-						defer wg.Done()
-
-						result := DataSignerCrc32(input)
-						mutex.Lock()
-						res[index] = result
-
-					}(i, _data)
-
-					//go privteCrc32(wg, _data, res[i])
-					//crc32 := DataSignerCrc32(_data)
-					//fmt.Println(data, "Multi hash crc32(th+data) ", i, crc32)
-					//result += crc32
-				}
-				wg.Wait()
-
-				for i := 0; i < 6; i++ {
-					s := res[i]
-					fmt.Println(data, "Multi hash crc32(th+data) ", i, s)
-					result += s
-				}
-				//fmt.Println(data, "Multihash result: ", result, time.Now())
-				out <- result
-			}(data, wg)
-			//return
+		if err != nil {
+			log.Panic(err)
 		}
-	//}
+		wg.Add(1)
+		go func(data string, outer_wg *sync.WaitGroup) {
+			defer outer_wg.Done()
+
+			log.Println("Multihash() input data: ", data)
+			var result string
+
+			// keep the results is a map
+			res := make(map[int]string)
+
+			mutex := &sync.Mutex{}
+			wg := &sync.WaitGroup{}
+
+			for i := 0; i < 6; i++ {
+				wg.Add(1)
+				go func(index int, input string) {
+					defer mutex.Unlock()
+					defer wg.Done()
+
+					result := DataSignerCrc32(input)
+
+					mutex.Lock()
+					res[index] = result
+				}(i, strconv.Itoa(i)+data)
+
+			}
+			wg.Wait()
+
+			for i := 0; i < 6; i++ {
+				s := res[i]
+				log.Println("Input: ", data, "Multihash() crc32(th+data) ", i, s)
+				result += s
+			}
+			out <- result
+		}(data, wg)
+	}
+	log.Println("Waiting Multihash() to finish...")
 	wg.Wait()
+	log.Println("*** End Multihash()")
 
 }
 
@@ -199,89 +190,11 @@ func CombineResults(in, out chan interface{}) {
 			fmt.Println(err)
 			return
 		}
-		//fmt.Println("Combine result res: ", data)
 		tempSlice = append(tempSlice, data)
 		res += data
 	}
 	sort.Strings(tempSlice)
-	endResult := fmt.Sprintf(strings.Join(tempSlice[:], "_"))
-	fmt.Println("Combine result final: ", endResult)
+	endResult := strings.Join(tempSlice[:], "_")
+	log.Println("Combine result final: ", endResult)
 	out <- endResult
-
 }
-
-
-//func ExecutePipelineNotWork(jobs ...job) {
-//
-//	noJobs := len(jobs)
-//	fmt.Printf("Starting pipelineof %d jobs...\n", noJobs)
-//
-//	input := make(chan interface{})
-//	output := make(chan interface{})
-//
-//	var res interface{}
-//
-//	for i, job := range jobs {
-//		fmt.Printf("Executing job %d type: %T\n", i, job)
-//		go job(input, output)
-//
-//		out:
-//
-//			for {
-//			select {
-//			case res = <- output:
-//				if i != 0 {
-//					input <- res
-//					res = nil
-//				}
-//				break
-//			default:
-//				if i == noJobs - 1 {
-//					time.Sleep(10*time.Millisecond)
-//					break out
-//				}
-//			}
-//
-//		} // end for
-//
-//
-//
-//	}
-//	//res := <- output
-//	fmt.Println("Pipeline is over...")
-//}
-
-//func ExecutePipelineWork(jobs ...job) {
-//	//wg := new(sync.WaitGroup)
-//
-//	noJobs := len(jobs)
-//	fmt.Printf("Starting pipelineof %d jobs...\n", noJobs)
-//
-//	input := make(chan interface{})
-//	output := make(chan interface{})
-//
-//	var res interface{}
-//
-//	for i, job := range jobs {
-//		fmt.Printf("Executing job %d type: %T\n", i, job)
-//		// wg.Add(1)
-//		go job(input, output)
-//
-//		if i != 0 && res != nil {
-//			input <- res
-//		}
-//
-//		if i < noJobs - 1 {
-//			res = <- output
-//			//r = res
-//			fmt.Println("intermediate result is: ", res)
-//			//input = output
-//			//output = make(chan interface{})
-//		}else{
-//			fmt.Printf("Last job is started\n")
-//		}
-//
-//	}
-//	//res := <- output
-//	fmt.Println("Pipeline is over...")
-//}
