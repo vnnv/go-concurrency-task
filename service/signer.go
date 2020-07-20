@@ -77,6 +77,7 @@ func SingleHash(in, out chan interface{}) {
 	for inDataRaw := range in {
 
 		data, err := convertToString(inDataRaw)
+		
 		if err != nil {
 			fmt.Println(err)
 			return
